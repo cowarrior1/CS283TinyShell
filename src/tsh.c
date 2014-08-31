@@ -416,7 +416,7 @@ void sigchld_handler(int sig)  {
     int status;
     pid_t pid;
     while (1){
-        pid = waitpid(-1, &status, WNOHANG);
+        pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
         if (pid < 0){
             if (errno == ECHILD){
                 return;
@@ -435,7 +435,7 @@ void sigchld_handler(int sig)  {
             printf("Job [%d] (%d) terminated by signal %d\n", getjobpid(jobs, pid)->jid, pid, WTERMSIG(status));
             deletejob(jobs, pid);
         } else if (WIFSTOPPED(status)) {
-            //printf("Process %d stopped by signal %d\n", pid, WSTOPSIG(status));
+            printf("Job [%d] (%d) stopped by signal %d\n", getjobpid(jobs, pid)->jid, pid, WSTOPSIG(status));
             struct job_t *job = getjobpid(jobs, pid);
             if (job){
                 job->state = ST;
