@@ -375,10 +375,10 @@ void do_bgfg(char **argv)  {
     }
 
     if (!strcmp(argv[0], "fg")){
-        job->state = FG;
         if (job->state == ST){
             kill(-job->pid, SIGCONT);
         }
+        job->state = FG;
         waitfg(job->pid);
     } else {
         if (job->state == ST){
