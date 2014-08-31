@@ -256,12 +256,12 @@ void eval(char *cmdline) {
             close(pipe_fds[1]);
         }
 
-        addjob(jobs, pid, (bg ? BG : FG) , cmdline);
+        int j_num = addjob(jobs, pid, (bg ? BG : FG) , cmdline);
         sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
         if (!bg){
             waitfg(pid);
         } else
-            printf("%d %s", pid, cmdline);
+            printf("[%d] (%d) %s", j_num, pid, cmdline);
     }
     return;
 }
