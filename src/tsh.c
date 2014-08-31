@@ -366,11 +366,11 @@ void do_bgfg(char **argv)  {
         printf("Foreground process detected.\n");
         return;
     }
-    int jid = atoi(argv[1]);
+    int id = (*(argv[1]) == '%') ? atoi(argv[1] + 1) : atoi(argv[1]);
 
-    struct job_t *job = getjobjid(jobs, jid);
+    struct job_t *job = (*(argv[1]) == '%') ? getjobjid(jobs, id) : getjobpid(jobs, id);
     if (!job){
-        printf("No job with id %d\n", jid);
+        printf("No job with id %d\n", id);
         return;
     }
 
