@@ -216,7 +216,7 @@ void eval(char *cmdline) {
             }
             if (pipe_fds[0] != -1){
                 dup2(pipe_fds[0], 1);
-                close(pipe_fds[0]);
+                //close(pipe_fds[0]);
                 close(pipe_fds[1]);
             } else if (outfd > 0){
                 dup2(outfd, 1);
@@ -236,7 +236,7 @@ void eval(char *cmdline) {
                 sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
                 setpgid(pid, pid);
                 dup2(pipe_fds[1], 0);
-                close(pipe_fds[1]);
+                close(pipe_fds[0]);
                 if (outfd > 0){
                     dup2(outfd, 1);
                     close(outfd);
