@@ -185,7 +185,7 @@ void eval(char *cmdline) {
         char **arg = argv;
         char **argv2 = NULL;
 
-        while (arg){
+        while (*arg){
             if (!strcmp(*arg, "<")){
                 if ((infd = open(*(arg + 1), O_RDONLY)) < 0)
                     perror("Could not open file for reading");
