@@ -429,13 +429,14 @@ void sigchld_handler(int sig)  {
             return;
         }
         if (WIFEXITED(status)){
-            printf("Process %d exited with status %d\n", pid, WEXITSTATUS(status));
+            //printf("Process %d exited with status %d\n", pid, WEXITSTATUS(status));
             deletejob(jobs, pid);
         } else if (WIFSIGNALED(status)){
-            printf("Process %d terminated by uncaught signal %d\n", pid, WTERMSIG(status));
+            int jid = getjobpid(jobs, pid);
+            printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, WTERMSIG(status));
             deletejob(jobs, pid);
         } else if (WIFSTOPPED(status)) {
-            printf("Process %d stopped by signal %d\n", pid, WSTOPSIG(status));
+            //printf("Process %d stopped by signal %d\n", pid, WSTOPSIG(status));
             struct job_t *job = getjobpid(jobs, pid);
             if (job){
                 job->state = ST;
