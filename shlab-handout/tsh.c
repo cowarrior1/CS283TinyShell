@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -339,17 +340,29 @@ int builtin_cmd(char **argv)  {
     }
     if (!strcmp(argv[0], "kill")){
         if (!argv[1] || strlen(argv[1]) == 0){
-            printf("No id specified to kill.\n");
+            printf("%s command requires PID or %jobid argument.\n", argv[0]);
             return 1;
         }
-        int id = (*(argv[1]) == '%') ? atoi(argv[1] + 1) : atoi(argv[1]);
+        char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
+        char *endptr = NULL;
+        int id;
+        errno = 0;
+        int id = strtol(startptr, &endptr, 10);
+        if (endptr == startptr
+                || '\0' != *endptr
+                || ((LONG_MIN == id || LONG_MAX == id) && ERANGE == errno)
+                || id > INT_MAX
+                || id < INT_MIN ) {
+            printf("%s: argument must be a PID or %jobid\n", argv[0]);
+            return 1;
+        }
         struct job_t *job;
 
         if ((*(argv[1]) == '%') && !(job = getjobjid(jobs, id))){
-            printf("No jobs found with that ID.\n");
+            printf("%s: No such process\n", argv[1]);
             return 1;
         } else if (!(job = getjobpid(jobs, id))){
-            printf("No jobs found with that ID.\n");
+            printf("(%d): No such process\n", id);
             return 1;
         }
         kill(-job->pid, SIGKILL);
@@ -366,11 +379,32 @@ void do_bgfg(char **argv)  {
         printf("Foreground process detected.\n");
         return;
     }
-    int id = (*(argv[1]) == '%') ? atoi(argv[1] + 1) : atoi(argv[1]);
+    if (!argv[1]){
+        printf("%s command requires PID or %jobid argument\n", argv[0]);
+        return;
+    }
+    char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
+    char *endptr = NULL;
+    int id;
+    errno = 0;
+    int id = strtol(startptr, &endptr, 10);
+    if (endptr == startptr
+            || '\0' != *endptr
+            || ((LONG_MIN == id || LONG_MAX == id) && ERANGE == errno)
+            || id > INT_MAX
+            || id < INT_MIN ) {
+        printf("%s: argument must be a PID or %jobid\n", argv[0]);
+        return;
+    }
 
     struct job_t *job = (*(argv[1]) == '%') ? getjobjid(jobs, id) : getjobpid(jobs, id);
+
     if (!job){
-        printf("No job with id %d\n", id);
+        if ((*(argv[1]) == '%')){
+            printf("%s: No such process\n", argv[1]);
+        } else {
+            printf("(%d): No such process\n", id);
+        }
         return;
     }
 
