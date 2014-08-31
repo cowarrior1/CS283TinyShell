@@ -256,12 +256,12 @@ void eval(char *cmdline) {
             close(pipe_fds[1]);
         }
 
-        int j_num = addjob(jobs, pid, (bg ? BG : FG) , cmdline);
+        addjob(jobs, pid, (bg ? BG : FG) , cmdline);
         sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
         if (!bg){
             waitfg(pid);
         } else
-            printf("[%d] (%d) %s", j_num, pid, cmdline);
+            printf("[%d] (%d) %s", getjobpid(jobs, pid)->jid, pid, cmdline);
     }
     return;
 }
@@ -432,8 +432,7 @@ void sigchld_handler(int sig)  {
             //printf("Process %d exited with status %d\n", pid, WEXITSTATUS(status));
             deletejob(jobs, pid);
         } else if (WIFSIGNALED(status)){
-            int jid = getjobpid(jobs, pid);
-            printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, WTERMSIG(status));
+            printf("Job [%d] (%d) terminated by signal %d\n", getjobpid(jobs, pid)->jid, pid, WTERMSIG(status));
             deletejob(jobs, pid);
         } else if (WIFSTOPPED(status)) {
             //printf("Process %d stopped by signal %d\n", pid, WSTOPSIG(status));
