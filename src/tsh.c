@@ -340,12 +340,11 @@ int builtin_cmd(char **argv)  {
     }
     if (!strcmp(argv[0], "kill")){
         if (!argv[1] || strlen(argv[1]) == 0){
-            printf("%s command requires PID or %jobid argument.\n", argv[0]);
+            printf("%s command requires PID or \%jobid argument.\n", argv[0]);
             return 1;
         }
         char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
         char *endptr = NULL;
-        int id;
         errno = 0;
         int id = strtol(startptr, &endptr, 10);
         if (endptr == startptr
@@ -353,7 +352,7 @@ int builtin_cmd(char **argv)  {
                 || ((LONG_MIN == id || LONG_MAX == id) && ERANGE == errno)
                 || id > INT_MAX
                 || id < INT_MIN ) {
-            printf("%s: argument must be a PID or %jobid\n", argv[0]);
+            printf("%s: argument must be a PID or \%jobid\n", argv[0]);
             return 1;
         }
         struct job_t *job;
@@ -380,12 +379,11 @@ void do_bgfg(char **argv)  {
         return;
     }
     if (!argv[1]){
-        printf("%s command requires PID or %jobid argument\n", argv[0]);
+        printf("%s command requires PID or \%jobid argument\n", argv[0]);
         return;
     }
     char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
     char *endptr = NULL;
-    int id;
     errno = 0;
     int id = strtol(startptr, &endptr, 10);
     if (endptr == startptr
@@ -393,7 +391,7 @@ void do_bgfg(char **argv)  {
             || ((LONG_MIN == id || LONG_MAX == id) && ERANGE == errno)
             || id > INT_MAX
             || id < INT_MIN ) {
-        printf("%s: argument must be a PID or %jobid\n", argv[0]);
+        printf("%s: argument must be a PID or \%jobid\n", argv[0]);
         return;
     }
 
