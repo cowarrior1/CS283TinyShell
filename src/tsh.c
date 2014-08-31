@@ -358,7 +358,7 @@ int builtin_cmd(char **argv)  {
         struct job_t *job;
 
         if ((*(argv[1]) == '%') && !(job = getjobjid(jobs, id))){
-            printf("%s: No such process\n", argv[1]);
+            printf("%s: No such job\n", argv[1]);
             return 1;
         } else if (!(job = getjobpid(jobs, id))){
             printf("(%d): No such process\n", id);
@@ -399,7 +399,7 @@ void do_bgfg(char **argv)  {
 
     if (!job){
         if ((*(argv[1]) == '%')){
-            printf("%s: No such process\n", argv[1]);
+            printf("%s: No such job\n", argv[1]);
         } else {
             printf("(%d): No such process\n", id);
         }
