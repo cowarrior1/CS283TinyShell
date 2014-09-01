@@ -214,10 +214,10 @@ void eval(char *cmdline) {
                 dup2(infd, 0);
                 close(infd);
             }
-            if (pipe_fds[0] != -1){
-                dup2(pipe_fds[1], 1);
+            if (pipe_fds[0] > 0){
+                dup2(pipe_fds[0], 1);
                 close(pipe_fds[0]);
-                //close(pipe_fds[1]);
+                close(pipe_fds[1]);
             } else if (outfd > 0){
                 dup2(outfd, 1);
                 close(outfd);
@@ -235,13 +235,14 @@ void eval(char *cmdline) {
             if (pid2 == 0){
                 sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
                 setpgid(pid, pid);
-                dup2(pipe_fds[0], 0);
+                dup2(pipe_fds[1], 0);
+                close(pipe_fds[0]);
                 close(pipe_fds[1]);
                 if (outfd > 0){
                     dup2(outfd, 1);
                     close(outfd);
                 }
-                if (execve(argv[0], argv, environ) < 0){
+                if (execve(argv2[0], argv2, environ) < 0){
                     printf("%s: command not found.\n", argv[0]);
                     exit(0);
                 }
