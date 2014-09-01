@@ -1,7 +1,9 @@
 /* 
  * tsh - A tiny shell program with job control
  * 
- * <Put your name and login ID here>
+ * Modified by Eric Rock
+ * Drexel University
+ * ear78
  */
 #include <stdio.h>
 #include <stdlib.h>
