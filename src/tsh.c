@@ -166,18 +166,24 @@ int main(int argc, char **argv)
  * when we type ctrl-c (ctrl-z) at the keyboard.  
 */
 void eval(char *cmdline) {
+    // Prepare a signal set to block and unblock (race conditions)
     sigset_t signal_set;
     sigemptyset(&signal_set);
     sigaddset(&signal_set, SIGCHLD);
+
     char* argv[MAXARGS];
     int bg;
     pid_t pid;
 
+    // Grab our argv array, check to see whether we are running bg or fg
     bg = parseline(cmdline, argv);
+    // return on empty arguments
     if (argv[0] == NULL)
         return;
 
+    // Try to execute a builtin command
     if (!builtin_cmd(argv)){
+        // Block sigchld to prevent race conditions
         sigprocmask(SIG_BLOCK, &signal_set, NULL);
 
         int infd = 0;
@@ -186,17 +192,21 @@ void eval(char *cmdline) {
         char **arg = argv;
         char **argv2 = NULL;
 
+        // Attempt to open any output redirection, and split the argv array
         while (*arg){
             if (!strcmp(*arg, "<")){
+                // Open an input file
                 if ((infd = open(*(arg + 1), O_RDONLY)) < 0)
                     perror("Could not open file for reading");
                 *arg = NULL;
             } else if (!strcmp(*arg, "|")){
+                // Open a pipe
                 if (pipe(pipe_fds) < 0)
                     unix_error("pipe");
                 *arg = NULL;
                 argv2 = arg + 1;
             } else if (!strcmp(*arg, ">")){
+                // Open an output file
                 if ((outfd = open(*(arg + 1), O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0)
                     perror("Could not open file for writing");
                 *arg = NULL;
@@ -208,13 +218,17 @@ void eval(char *cmdline) {
         if (pid < 0)
             unix_error("fork");
         if (pid == 0){
+            // unblock for the child process
             sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
             setpgid(0, 0);
+            // Redirect standard input, if appropriate
             if (infd > 0){
                 dup2(infd, 0);
                 close(infd);
             }
+            // Redirect standard output, if appropriate
             if (pipe_fds[1] > 0){
+                // Connect stdout to the out port of the pipe
                 dup2(pipe_fds[1], 1);
                 close(pipe_fds[0]);
                 close(pipe_fds[1]);
@@ -228,16 +242,21 @@ void eval(char *cmdline) {
             }
         }
 
+        // If a pipe was detected, execute the second process
         if (argv2 != NULL){
             pid_t pid2 = fork();
             if (pid2 < 0)
                 unix_error("fork");
             if (pid2 == 0){
+                // Unblock for the child proecss
                 sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
+                // Add this process to the process group of the first
                 setpgid(pid, pid);
+                // Pipe stdin to the input port of our pipe
                 dup2(pipe_fds[0], 0);
                 close(pipe_fds[0]);
                 close(pipe_fds[1]);
+                // Redirect stdout, if appropriate
                 if (outfd > 0){
                     dup2(outfd, 1);
                     close(outfd);
@@ -249,6 +268,7 @@ void eval(char *cmdline) {
             }
         }
 
+        // Close any opened file descriptors
         if (infd > 0)
             close(infd);
         if (outfd > 0)
@@ -258,9 +278,12 @@ void eval(char *cmdline) {
             close(pipe_fds[1]);
         }
 
+        // Add the new job to the job pool
         addjob(jobs, pid, (bg ? BG : FG) , cmdline);
+        // Unblock our child signal, so that we can reap our children
         sigprocmask(SIG_UNBLOCK, &signal_set, NULL);
         if (!bg){
+            // If we're a fg process, wait for it to complete
             waitfg(pid);
         } else
             printf("[%d] (%d) %s", getjobpid(jobs, pid)->jid, pid, cmdline);
@@ -327,23 +350,29 @@ int parseline(const char *cmdline, char **argv) {
  *    it immediately.  
  */
 int builtin_cmd(char **argv)  {
+    // Exit the shell
     if (!strcmp(argv[0], "quit"))
         exit(0);
+    // Eat solitary & commands
     if (!strcmp(argv[0], "&"))
         return 1;
+    // Display the jobs list
     if (!strcmp(argv[0], "jobs")){
         listjobs(jobs);
         return 1;
     }
+    // Bring stopped jobs into the foreground or background
     if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")){
         do_bgfg(argv);
         return 1;
     }
+    // Kill stopped or background jobs
     if (!strcmp(argv[0], "kill")){
         if (!argv[1] || strlen(argv[1]) == 0){
             printf("%s command requires PID or %%jobid argument.\n", argv[0]);
             return 1;
         }
+        // Interpret a prepended % as a job id
         char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
         char *endptr = NULL;
         errno = 0;
@@ -375,14 +404,17 @@ int builtin_cmd(char **argv)  {
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv)  {
+    // Extra error checking can't hurt, though this should be impossible
     if (fgpid(jobs) != 0){
         printf("Foreground process detected.\n");
         return;
     }
+    // If there was no supplied argument, run away
     if (!argv[1]){
         printf("%s command requires PID or %%jobid argument\n", argv[0]);
         return;
     }
+    // Interpret a prepended % as a job id
     char *startptr = (*(argv[1]) == '%') ? argv[1] + 1 : argv[1];
     char *endptr = NULL;
     errno = 0;
@@ -397,7 +429,6 @@ void do_bgfg(char **argv)  {
     }
 
     struct job_t *job = (*(argv[1]) == '%') ? getjobjid(jobs, id) : getjobpid(jobs, id);
-
     if (!job){
         if ((*(argv[1]) == '%')){
             printf("%s: No such job\n", argv[1]);
@@ -408,12 +439,14 @@ void do_bgfg(char **argv)  {
     }
 
     if (!strcmp(argv[0], "fg")){
+        // Resume a stopped process in the fg
         if (job->state == ST){
             kill(-job->pid, SIGCONT);
         }
         job->state = FG;
         waitfg(job->pid);
     } else {
+        // Resume a stopped process in the bg
         if (job->state == ST){
             kill(-job->pid, SIGCONT);
         }
@@ -428,8 +461,9 @@ void do_bgfg(char **argv)  {
 void waitfg(pid_t pid) {
     struct job_t *job = getjobpid(jobs, pid);
 
+    // While there's a foreground job...
     while (job && job->state == FG){
-        sleep(1);
+        sleep(1); // zzzzzzzzz...
         job = getjobpid(jobs, pid);
     }
 }
@@ -449,25 +483,33 @@ void sigchld_handler(int sig)  {
     int status;
     pid_t pid;
     while (1){
+        // Get status on all stopped and terminated children
         pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
         if (pid < 0){
             if (errno == ECHILD){
+                // If we're out of children... time to make some more!
                 return;
             } else if (errno == EINTR){
+                // If we were interrupted, well that's a crying shame. This shouldn't be possible btw
                 continue;
             } else {
+                // ABORT! ABORT MISSION! ABANDON THREAD!!!
                 unix_error("waitpid returned unspecified error.");
             }
         } else if (pid == 0){
+            // This tells us that nothing's terminated or waiting, I'm pretty sure?
             return;
         }
+        // If the child exited cleanly, just remove it from the pool
         if (WIFEXITED(status)){
             //printf("Process %d exited with status %d\n", pid, WEXITSTATUS(status));
             deletejob(jobs, pid);
         } else if (WIFSIGNALED(status)){
+            // Let users know if their child was killed
             printf("Job [%d] (%d) terminated by signal %d\n", getjobpid(jobs, pid)->jid, pid, WTERMSIG(status));
             deletejob(jobs, pid);
         } else if (WIFSTOPPED(status)) {
+            // Let users know if their child was stopped
             printf("Job [%d] (%d) stopped by signal %d\n", getjobpid(jobs, pid)->jid, pid, WSTOPSIG(status));
             struct job_t *job = getjobpid(jobs, pid);
             if (job){
@@ -485,7 +527,9 @@ void sigchld_handler(int sig)  {
  */
 void sigint_handler(int sig) {
     pid_t pid;
+    // Move the signal along...
     if ((pid = fgpid(jobs)) > 0){
+        // Be sure to send it to the entire process group
         if (kill(-pid, sig) < 0)
             unix_error("kill");
     }
@@ -498,7 +542,9 @@ void sigint_handler(int sig) {
  */
 void sigtstp_handler(int sig) {
     pid_t pid;
+    // Move the signal along...
     if ((pid = fgpid(jobs)) > 0){
+        // Be sure to send it to the entire process group
         if (kill(-pid, sig) < 0)
             unix_error("kill");
     }
